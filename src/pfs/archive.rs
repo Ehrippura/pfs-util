@@ -1,4 +1,5 @@
-use std::{fs::File, io::{BufRead, BufReader, Read}, path::Path};
+use std::{fs::File, io::{BufRead, BufReader, Read, Seek, SeekFrom}, mem};
+use sha1::{Sha1, Digest};
 
 use super::err::UnpackErr;
 
@@ -11,9 +12,9 @@ pub struct PFSEntityInfo {
 
 pub struct PFSArchive {
     pub filename: String,
-    pub files: Vec<PFSEntityInfo>
+    pub files: Vec<PFSEntityInfo>,
+    pub key: [u8; 20]
 }
-
 
 impl PFSArchive {
 
@@ -24,18 +25,17 @@ impl PFSArchive {
     pub fn new(filename: &str) -> Self {
         Self {
             filename: String::from(filename),
-            files: Vec::new()
+            files: Vec::new(),
+            key: [0_u8; 20]
         }
     }
 
     pub fn from_file(filename: &str) -> Result<Self, UnpackErr> {
 
-        let path = Path::new(filename);
-
         let file = File::options()
             .read(true)
             .write(false)
-            .open(path)
+            .open(filename)
             .unwrap();
 
         let mut reader = BufReader::new(file);
@@ -53,14 +53,16 @@ impl PFSArchive {
             return Err(UnpackErr { message: format!("{}", e) });
         }
 
-        match char::from(buffer[0]) {
+        let file_version = char::from(buffer[0]);
+
+        match file_version {
             '2' => println!("vaild PFS version 2"),
             '6' => println!("vaild PFS version 6"),
             '8' => println!("vaild PFS version 8"),
             _ => return Err(UnpackErr { message: String::from("Invalid file version") })
         }
 
-        let _info_size = read_u32(&mut reader)?;
+        let info_size = read_u32(&mut reader)?;
         let file_count = read_u32(&mut reader)?;
         println!("File count {}", file_count);
 
@@ -83,9 +85,26 @@ impl PFSArchive {
             });
         }
 
+        // get xor key
+        let mut key = [0_u8; 20];
+
+        if file_version == '8' {
+            reader.seek(SeekFrom::Start(2 + 1 + 4)).unwrap();
+            let info_size_capacity = usize::try_from(info_size).unwrap();
+            let mut buffer = vec![0; info_size_capacity];
+            reader.read_exact(&mut buffer).unwrap();
+
+            let mut hasher = Sha1::new();
+            hasher.update(buffer);
+
+            let result = hasher.finalize();
+            key = result.into();
+        }
+
         Ok(Self {
-            filename: String::from(path.file_name().unwrap().to_str().unwrap()),
-            files: infos
+            filename: String::from(filename),
+            files: infos,
+            key
         })
     }
 }
