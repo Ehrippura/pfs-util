@@ -1,0 +1,11 @@
+[package]
+name = "pfs-util"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+sha1 = "0.10.6"
+
+[dependencies.clap]
+version = "4.5.11"
+features = ["derive"]
