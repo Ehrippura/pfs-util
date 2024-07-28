@@ -19,10 +19,13 @@ enum Operator {
 
     /// Unarchive selected pfs file.
     Unarchive {
-        /// input file name
+        /// Input file name
         input: String,
-        /// output folder name (optional)
+        /// Output folder name (optional)
         output: Option<String>,
+        /// Dry run
+        #[arg(long, short)]
+        dry: bool
     }
 }
 
@@ -32,9 +35,9 @@ fn main() {
 
     match &cli.command {
         Operator::Archive => todo!(),
-        Operator::Unarchive { input, output } => {
+        Operator::Unarchive { input, output, dry } => {
             let archive = PFSArchive::from_file(&input).unwrap();
-            unpack(&archive, output.as_deref()).unwrap();
+            unpack(&archive, output.as_deref(), *dry).unwrap();
         },
     }
 }

@@ -1,4 +1,4 @@
-use std::{fs::File, io::{BufRead, BufReader, Read, Seek, SeekFrom}, mem};
+use std::{fs::File, io::{BufReader, Read, Seek, SeekFrom}};
 use sha1::{Sha1, Digest};
 
 use super::err::UnpackErr;
@@ -20,7 +20,7 @@ impl PFSArchive {
 
     const FILE_MAGIC: [u8; 2] = [0x70, 0x66];
 
-    const FILE_VERSION: u8 = 8;
+    const _FILE_VERSION: u8 = 8;
 
     pub fn new(filename: &str) -> Self {
         Self {
@@ -109,19 +109,19 @@ impl PFSArchive {
     }
 }
 
-fn read_u32<R: BufRead>(reader: &mut R) -> Result<u32, UnpackErr> {
+fn read_u32<R: Read>(reader: &mut R) -> Result<u32, UnpackErr> {
 
-    let mut buffer = vec![0_u8; 4];
+    let mut buffer = [0_u8; 4];
 
     if let Err(e) = reader.read_exact(&mut buffer) {
         return Err(UnpackErr { message: format!("{}", e) });
     }
 
-    Ok(u32::from_le_bytes(buffer.try_into().unwrap()))
+    Ok(u32::from_le_bytes(buffer))
 }
 
 #[cfg(test)]
-mod Test {
+mod test {
 
     use super::*;
 

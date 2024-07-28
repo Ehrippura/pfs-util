@@ -1,10 +1,11 @@
 use std::io::{BufReader, Read, Seek, SeekFrom};
 use std::path::Path;
 use std::fs::{self, File};
+
 use super::archive::PFSArchive;
 use super::err::UnpackErr;
 
-pub fn unpack(archive: &PFSArchive, target: Option<&str>) -> Result<(), UnpackErr> {
+pub fn unpack(archive: &PFSArchive, target: Option<&str>, dry: bool) -> Result<(), UnpackErr> {
 
     let target_folder = if let Some(name) = target {
         Path::new(name)
@@ -30,6 +31,13 @@ pub fn unpack(archive: &PFSArchive, target: Option<&str>) -> Result<(), UnpackEr
 
     println!("Save file to target: {}", target_folder.to_str().unwrap());
 
+    if dry {
+        for entity in &archive.files {
+            println!("extract file: {}...OK", entity.name.as_str());
+        }
+        return Ok(())
+    }
+
     let file = File::options()
         .read(true)
         .write(false)
@@ -40,7 +48,7 @@ pub fn unpack(archive: &PFSArchive, target: Option<&str>) -> Result<(), UnpackEr
 
     for entity in &archive.files {
         let file_path = target_folder.join(entity.name.as_str());
-        print!("extract file: {}...", file_path.to_str().unwrap());
+        print!("extract file: {}...", entity.name.as_str());
 
         let prefix = file_path.parent().unwrap();
         if prefix.exists() {
