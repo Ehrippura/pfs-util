@@ -1,7 +1,8 @@
 use std::fs::File;
 use std::io::{BufWriter, ErrorKind, Read, Seek, Write};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use sha1::{Sha1, Digest};
+use walkdir::WalkDir;
 use super::archive::*;
 
 pub fn pack<P: AsRef<Path>>(input: P, output: P) -> Result<(), std::io::Error> {
@@ -9,9 +10,21 @@ pub fn pack<P: AsRef<Path>>(input: P, output: P) -> Result<(), std::io::Error> {
     let mut files: Vec<PFSEntityInfo> = vec![];
 
     if input.as_ref().is_dir() {
-        todo!("implement folder iternator")
+        for entity in WalkDir::new(input.as_ref()).follow_links(false) {
+            if let Ok(e) = entity {
+
+                if e.path().is_dir() {
+                    continue;
+                }
+
+                match entity_from(e.path(), Some(input.as_ref())) {
+                    Ok(e) => files.push(e),
+                    Err(_) => continue
+                }
+            }
+        }
     } else {
-        let entity = entity_from(input)?;
+        let entity = entity_from(input, None)?;
         files.push(entity);
     }
 
@@ -57,14 +70,16 @@ pub fn pack<P: AsRef<Path>>(input: P, output: P) -> Result<(), std::io::Error> {
 
     // write file metadata
     for file in &mut files {
+
         let mut memory_writer = BufWriter::new(Vec::new());
         file.offset = u32::try_from(offset).unwrap();
-        offset += memory_writer.write(&file.file_name_size().to_le_bytes())?;
-        offset += memory_writer.write(file.name.as_bytes())?;
+        memory_writer.write_all(&file.file_name_size().to_le_bytes())?;
+        memory_writer.write_all(file.name.as_bytes())?;
         file.position = u32::try_from(writer.stream_position()?).unwrap() + u32::try_from(memory_writer.buffer().len()).unwrap();
-        offset += memory_writer.write(&[0_u8; 4])?;
-        offset += memory_writer.write(&file.offset.to_le_bytes())?;
-        offset += memory_writer.write(&file.size.to_le_bytes())?;
+        memory_writer.write_all(&[0_u8; 4])?;
+        memory_writer.write_all(&file.offset.to_le_bytes())?;
+        memory_writer.write_all(&file.size.to_le_bytes())?;
+
         offset += usize::try_from(file.size).unwrap();
 
         let bytes = memory_writer.into_inner()?;
@@ -99,6 +114,9 @@ pub fn pack<P: AsRef<Path>>(input: P, output: P) -> Result<(), std::io::Error> {
     let hash_key: [u8; 20] = hasher.finalize().into();
 
     for file in &files {
+
+        println!("Adding {}...", file.path);
+
         let mut f = File::open(&file.path)?;
         let mut buffer = Vec::new();
         let mut final_data = Vec::new();
@@ -116,7 +134,7 @@ pub fn pack<P: AsRef<Path>>(input: P, output: P) -> Result<(), std::io::Error> {
     Ok(())
 }
 
-fn entity_from<P: AsRef<Path>>(path: P) -> Result<PFSEntityInfo, std::io::Error> {
+fn entity_from<P: AsRef<Path>>(path: P, folder_path: Option<P>) -> Result<PFSEntityInfo, std::io::Error> {
 
     let path: &Path = path.as_ref();
     if !path.exists() {
@@ -124,11 +142,30 @@ fn entity_from<P: AsRef<Path>>(path: P) -> Result<PFSEntityInfo, std::io::Error>
     }
 
     let file_size = std::fs::metadata(path).unwrap().len();
-    let name = path.file_name().unwrap().to_str().unwrap();
+    let name: String;
+
+    match folder_path {
+        Some(p) => {
+            let c1: Vec<_> = path.components().collect();
+            let c2: Vec<_> = p.as_ref().components().collect();
+
+            let mut new_path = PathBuf::new();
+
+            for (idx, component) in c1.iter().enumerate() {
+                if idx < c2.len() && component.as_os_str() == c2[idx].as_os_str() {
+                    continue;
+                }
+                new_path.push(component);
+            }
+
+            name = String::from(new_path.to_str().unwrap()).replace("/", "\\");
+        },
+        None => name = String::from(path.file_name().unwrap().to_str().unwrap()),
+    }
 
     Ok(PFSEntityInfo {
         path: String::from(path.to_str().unwrap()),
-        name: String::from(name),
+        name,
         position: 0,
         offset: 0,
         size: u32::try_from(file_size).unwrap()
