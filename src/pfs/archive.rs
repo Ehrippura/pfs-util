@@ -3,11 +3,45 @@ use sha1::{Sha1, Digest};
 
 use super::err::UnpackErr;
 
+pub struct PFSHeader {
+    pub info_size: u32,
+    pub file_count: u32
+}
+
+impl PFSHeader {
+    pub fn new() -> Self {
+        Self {
+            info_size: 0,
+            file_count: 0
+        }
+    }
+}
 
 pub struct PFSEntityInfo {
+    pub path: String,
     pub name: String,
+    pub position: u32,
     pub offset: u32,
     pub size: u32
+}
+
+impl PFSEntityInfo {
+    pub fn info_size(&self) -> u32 {
+
+        let size = self.file_name_size();
+        if size == 0 {
+            return 0;
+        }
+
+        let u32_size = u32::try_from(size_of::<u32>()).unwrap();
+
+        // offset size + file size + file name length size + file name length + terminate
+        return u32_size * 4 + size;
+    }
+
+    pub fn file_name_size(&self) -> u32 {
+        u32::try_from(self.name.as_bytes().len()).unwrap_or(0)
+    }
 }
 
 pub struct PFSArchive {
@@ -18,9 +52,9 @@ pub struct PFSArchive {
 
 impl PFSArchive {
 
-    const FILE_MAGIC: [u8; 2] = [0x70, 0x66];
+    pub const FILE_MAGIC: [u8; 2] = [0x70, 0x66];
 
-    const _FILE_VERSION: u8 = 8;
+    pub const FILE_VERSION: u8 = 0x38;
 
     pub fn new(filename: &str) -> Self {
         Self {
@@ -69,17 +103,19 @@ impl PFSArchive {
         let mut infos: Vec<PFSEntityInfo> = vec![];
 
         for _ in 0..file_count {
-            let path_length = read_u32(&mut reader)?;
-            let capacity = usize::try_from(path_length).unwrap();
+            let capacity = usize::try_from(read_u32(&mut reader)?).unwrap();
             let mut buffer = vec![0; capacity];
             reader.read_exact(&mut buffer).unwrap();
             let filename: String = String::from_utf8(buffer).unwrap();
-            let _skip = read_u32(&mut reader)?;
+            let position = reader.stream_position().unwrap();
+            let _skip: u32 = read_u32(&mut reader)?;
             let offset = read_u32(&mut reader)?;
             let size = read_u32(&mut reader)?;
 
             infos.push(PFSEntityInfo {
+                path: String::from(""),
                 name: filename,
+                position: u32::try_from(position).unwrap_or(0),
                 offset,
                 size
             });
@@ -89,7 +125,9 @@ impl PFSArchive {
         let mut key = [0_u8; 20];
 
         if file_version == '8' {
-            reader.seek(SeekFrom::Start(2 + 1 + 4)).unwrap();
+            let info_size_block_length = u64::try_from(size_of::<u32>()).unwrap();
+            // skip magic + version + info_size block
+            reader.seek(SeekFrom::Start(2 + 1 + info_size_block_length)).unwrap();
             let info_size_capacity = usize::try_from(info_size).unwrap();
             let mut buffer = vec![0; info_size_capacity];
             reader.read_exact(&mut buffer).unwrap();

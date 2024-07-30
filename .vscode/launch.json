@@ -7,7 +7,25 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug executable 'pfs-util'",
+            "name": "Debug executable 'pfs-util' archive feature",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=pfs-util",
+                    "--package=pfs-util"
+                ],
+                "filter": {
+                    "name": "pfs-util",
+                    "kind": "bin"
+                }
+            },
+            "args": ["archive", "./sample/demo.ini", "debug_output.pfs"],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug executable 'pfs-util' unarchive feature",
             "cargo": {
                 "args": [
                     "build",

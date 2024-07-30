@@ -19,14 +19,6 @@ pub fn unpack(archive: &PFSArchive, target: Option<&str>, dry: bool) -> Result<(
         Path::new(name)
     };
 
-    if target_folder.exists() {
-        if !target_folder.is_dir() {
-            return Err(UnpackErr { message: format!("{} is not folder", target_folder.to_str().unwrap()) });
-        }
-    } else {
-        fs::create_dir(target_folder).unwrap();
-    }
-
     println!("Start unarchive file: {}", archive.filename);
 
     println!("Save file to target: {}", target_folder.to_str().unwrap());
@@ -36,6 +28,14 @@ pub fn unpack(archive: &PFSArchive, target: Option<&str>, dry: bool) -> Result<(
             println!("extract file: {}...OK", entity.name.as_str());
         }
         return Ok(())
+    }
+
+    if target_folder.exists() {
+        if !target_folder.is_dir() {
+            return Err(UnpackErr { message: format!("{} is not folder", target_folder.to_str().unwrap()) });
+        }
+    } else {
+        fs::create_dir(target_folder).unwrap();
     }
 
     let file = File::options()
