@@ -106,7 +106,7 @@ impl PFSArchive {
             let capacity = usize::try_from(read_u32(&mut reader)?).unwrap();
             let mut buffer = vec![0; capacity];
             reader.read_exact(&mut buffer).unwrap();
-            let filename: String = String::from_utf8(buffer).unwrap();
+            let filename: String = String::from_utf8(buffer).unwrap().replace("\\", "/");
             let position = reader.stream_position().unwrap();
             let _skip: u32 = read_u32(&mut reader)?;
             let offset = read_u32(&mut reader)?;
