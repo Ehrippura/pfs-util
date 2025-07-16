@@ -160,6 +160,9 @@ fn read_u32<R: Read>(reader: &mut R) -> Result<u32, UnpackErr> {
 
 #[cfg(test)]
 mod test {
+    use std::fs;
+    use std::path::Path;
+    use crate::pfs::{pack, unpack};
 
     use super::*;
 
@@ -173,5 +176,56 @@ mod test {
     fn read_from_file() {
         let archive = PFSArchive::from_file("./sample/demo.pfs").unwrap();
         assert_eq!(archive.files.first().unwrap().name, "demo.ini");
+    }
+
+    #[test]
+    fn pack_unpack_single_file() {
+        let input_file = "./sample/demo.ini";
+        let output_pfs = "./sample/demo.pfs";
+        let unpack_folder = "./sample/unpacked";
+
+        pack::pack(input_file, output_pfs).unwrap();
+
+        let archive = PFSArchive::from_file(output_pfs).unwrap();
+        unpack::unpack(&archive, Some(unpack_folder), false).unwrap();
+
+        let unpacked_file = Path::new(unpack_folder).join("demo.ini");
+        assert!(unpacked_file.exists());
+
+        let original_content = fs::read_to_string(input_file).unwrap();
+        let unpacked_content = fs::read_to_string(unpacked_file).unwrap();
+        assert_eq!(original_content, unpacked_content);
+
+        fs::remove_file(output_pfs).unwrap();
+        fs::remove_dir_all(unpack_folder).unwrap();
+    }
+
+    #[test]
+    fn pack_unpack_folder() {
+        let input_folder = "./sample/demo_folder";
+        let output_pfs = "./sample/demo_folder.pfs";
+        let unpack_folder = "./sample/unpacked_folder";
+
+        pack::pack(input_folder, output_pfs).unwrap();
+
+        let archive = PFSArchive::from_file(output_pfs).unwrap();
+        unpack::unpack(&archive, Some(unpack_folder), false).unwrap();
+
+        let inner_file = Path::new(unpack_folder).join("inner.ini");
+        assert!(inner_file.exists());
+
+        let original_content = fs::read_to_string(Path::new(input_folder).join("inner.ini")).unwrap();
+        let unpacked_content = fs::read_to_string(inner_file).unwrap();
+        assert_eq!(original_content, unpacked_content);
+
+        let inner2_file = Path::new(unpack_folder).join("inner2.ini");
+        assert!(inner2_file.exists());
+
+        let original_content2 = fs::read_to_string(Path::new(input_folder).join("inner2.ini")).unwrap();
+        let unpacked_content2 = fs::read_to_string(inner2_file).unwrap();
+        assert_eq!(original_content2, unpacked_content2);
+
+        fs::remove_file(output_pfs).unwrap();
+        fs::remove_dir_all(unpack_folder).unwrap();
     }
 }
