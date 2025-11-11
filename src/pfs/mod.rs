@@ -1,4 +1,4 @@
-pub mod err;
 pub mod archive;
-pub mod unpack;
+pub mod err;
 pub mod pack;
+pub mod unpack;

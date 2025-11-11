@@ -2,7 +2,7 @@ use std::fmt;
 
 #[derive(Debug)]
 pub struct UnpackErr {
-    pub message: String
+    pub message: String,
 }
 
 impl fmt::Display for UnpackErr {
@@ -11,7 +11,6 @@ impl fmt::Display for UnpackErr {
     }
 }
 
-
 #[cfg(test)]
 mod test {
 
@@ -19,7 +18,9 @@ mod test {
 
     #[test]
     fn print_error() {
-        let error = UnpackErr { message: String::from("Hello Error") };
+        let error = UnpackErr {
+            message: String::from("Hello Error"),
+        };
         println!("{}", error);
     }
 }
